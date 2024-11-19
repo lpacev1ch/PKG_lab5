@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Отсечение отрезков</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        canvas {
+            border: 1px solid black;
+            margin-top: 20px;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Алгоритм Сазерленда-Коэна</h1>
+<canvas id="canvas" width="800" height="600"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const segments = [
+        { x1: 0, y1: 0, x2: 5, y2: 5 },
+        { x1: 1, y1: 1, x2: 4, y2: 4 },
+        { x1: 2, y1: 2, x2: 6, y2: 6 }
+    ];
+    const clipWindow = { xmin: 1, ymin: 1, xmax: 3, ymax: 3 };
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawClipWindow();
+        drawSegments();
+        clipSegments();
+    }
+
+    function drawClipWindow() {
+        ctx.fillStyle = 'rgba(100, 150, 250, 0.5)';
+        ctx.fillRect(clipWindow.xmin * 100, clipWindow.ymin * 100, 
+                     (clipWindow.xmax - clipWindow.xmin) * 100, 
+                     (clipWindow.ymax - clipWindow.ymin) * 100);
+    }
+
+    function drawSegments() {
+        ctx.strokeStyle = 'blue';
+        segments.forEach(seg => {
+            ctx.beginPath();
+            ctx.moveTo(seg.x1 * 100, seg.y1 * 100);
+            ctx.lineTo(seg.x2 * 100, seg.y2 * 100);
+            ctx.stroke();
+        });
+    }
+
+    function clipSegments() {
+        ctx.strokeStyle = 'red';
+        segments.forEach(seg => {
+            const clipped = sutherlandHodgman(seg, clipWindow);
+            if (clipped) {
+                ctx.beginPath();
+                ctx.moveTo(clipped[0].x * 100, clipped[0].y * 100);
+                clipped.forEach(point => {
+                    ctx.lineTo(point.x * 100, point.y * 100);
+                });
+                ctx.stroke();
+            }
+        });
+    }
+
+    function sutherlandHodgman(segment, clip) {
+        const { x1, y1, x2, y2 } = segment;
+        const p = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+        const result = [];
+
+        const edges = [
+            { x: clip.xmin, y: clip.ymin, dx: 1, dy: 0 }, // left
+            { x: clip.xmax, y: clip.ymin, dx: 0, dy: 1 }, // bottom
+            { x: clip.xmax, y: clip.ymax, dx: -1, dy: 0 }, // right
+            { x: clip.xmin, y: clip.ymax, dx: 0, dy: -1 }  // top
+        ];
+
+        let inside = false;
+        let prevPoint = p[0];
+
+        for (let edge of edges) {
+            let newPoints = [];
+            let newInside = false;
+
+            for (let currentPoint of p) {
+                if (insideTest(currentPoint, edge)) {
+                    newPoints.push(currentPoint);
+                    newInside = true;
+                }
+
+                if (inside && !insideTest(currentPoint, edge)) {
+                    const intersection = getIntersection(prevPoint, currentPoint, edge);
+                    newPoints.push(intersection);
+                }
+
+                prevPoint = currentPoint;
+            }
+
+            if (newInside) {
+                result.push(...newPoints);
+            }
+
+            inside = newInside;
+            p.length = 0; // Clear current points
+            p.push(...newPoints); // Set new points for the next edge
+        }
+
+        return result.length > 0 ? result : null;
+    }
+
+    function insideTest(point, edge) {
+        const { x, y } = edge;
+        return (point.x > x) === (edge.dy === 0) && (point.y > y) === (edge.dx === 0);
+    }
+
+    function getIntersection(p1, p2, edge) {
+        const x1 = p1.x;
+        const y1 = p1.y;
+        const x2 = p2.x;
+        const y2 = p2.y;
+        const { x, y } = edge;
+
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+
+        if (dy === 0) {
+            return { x: x, y: y1 + dy * ((x - x1) / dx) };
+        } else {
+            return { y: y, x: x1 + dx * ((y - y1) / dy) };
+        }
+    }
+
+    draw();
+</script>
+
+</body>
+</html>
